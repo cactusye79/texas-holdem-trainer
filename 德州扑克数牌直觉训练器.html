@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>德州扑克 · 数牌直觉训练器</title>
+<style>
+  :root {
+    --bg: #faf8f4;
+    --panel: #ffffff;
+    --ink: #2b2b2b;
+    --muted: #8a8578;
+    --line: #e8e3d8;
+    --accent: #c0442c;
+    --accent-soft: #fdf0ec;
+    --good: #2e7d4f;
+    --good-soft: #ecf7f0;
+    --bad: #c0442c;
+    --bad-soft: #fdf0ec;
+    --gold: #b98a2f;
+    --red-suit: #c0392b;
+    --black-suit: #2b2b2b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 24px 16px 60px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: 1px; }
+  .sub { color: var(--muted); margin: 6px 0 20px; font-size: 14px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tab {
+    padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); cursor: pointer; font-size: 15px; font-weight: 600;
+    transition: all .15s;
+  }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card-box {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px; margin-bottom: 16px;
+  }
+  .card-box h2 { font-size: 18px; margin-bottom: 10px; }
+  .tip {
+    background: var(--accent-soft); border-left: 4px solid var(--accent);
+    padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 14px; margin-bottom: 14px;
+  }
+  .tip b { color: var(--accent); }
+
+  /* 扑克牌 */
+  .poker-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .poker {
+    width: 62px; height: 88px; border-radius: 8px; background: #fff;
+    border: 1.5px solid #d8d2c4; box-shadow: 0 2px 5px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 700; position: relative;
+  }
+  .poker .rank { font-size: 26px; line-height: 1; }
+  .poker .suit { font-size: 20px; margin-top: 2px; }
+  .poker .corner { position: absolute; top: 5px; left: 7px; font-size: 12px; line-height: 1.1; }
+  .poker.red { color: var(--red-suit); }
+  .poker.black { color: var(--black-suit); }
+  .poker.back {
+    background: repeating-linear-gradient(45deg, #37506b, #37506b 6px, #2c4258 6px, #2c4258 12px);
+    border-color: #2c4258;
+  }
+  .poker.back .rank, .poker.back .suit { display: none; }
+  .stage-label { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  .btn {
+    padding: 10px 22px; border: none; border-radius: 9px; background: var(--accent);
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-right: 10px; margin-top: 8px;
+  }
+  .btn:hover { opacity: .9; }
+  .btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .opt-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .opt {
+    padding: 12px 20px; border: 1.5px solid var(--line); border-radius: 10px;
+    background: #fff; cursor: pointer; font-size: 16px; font-weight: 700; min-width: 76px;
+    text-align: center; transition: all .12s;
+  }
+  .opt:hover { border-color: var(--accent); color: var(--accent); }
+  .feedback { margin-top: 14px; padding: 12px 16px; border-radius: 10px; font-size: 15px; display: none; }
+  .feedback.show { display: block; }
+  .feedback.ok { background: var(--good-soft); color: var(--good); border: 1px solid #cfe8d9; }
+  .feedback.no { background: var(--bad-soft); color: var(--bad); border: 1px solid #f2d4cc; }
+  .score { font-size: 14px; color: var(--muted); margin-top: 10px; }
+
+  /* 13x13 表格 */
+  .grid13 { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; margin-top: 14px; }
+  .cell {
+    aspect-ratio: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; cursor: pointer; color: #fff; user-select: none;
+  }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .hand-detail { margin-top: 14px; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; display: none; }
+
+  /* 比例条 */
+  .bar-wrap { margin-top: 14px; }
+  .bar-label { font-size: 13px; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .bar { height: 22px; background: #eee9dd; border-radius: 6px; overflow: hidden; position: relative; }
+  .bar .fill { height: 100%; background: var(--good); width: 0; transition: width .6s ease; }
+  .bar .mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+  .input-num {
+    width: 110px; padding: 10px; font-size: 18px; font-weight: 700; text-align: center;
+    border: 1.5px solid var(--line); border-radius: 9px;
+  }
+  .big-q { font-size: 17px; margin: 8px 0 4px; }
+  .hl { color: var(--accent); font-weight: 700; }
+  .rules-list { font-size: 14px; }
+  .rules-list li { margin: 8px 0 8px 20px; }
+  .divider { border: none; border-top: 1px dashed var(--line); margin: 18px 0; }
+  .chunk { font-size: 15px; margin: 10px 0; padding: 10px 14px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+  .chunk b { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🃏 德州扑克 · 数牌直觉训练器</h1>
+  <div class="sub">不给公式，只练三件事：<b>数数</b>、<b>倍数</b>、<b>比大小</b> —— 数学不好照样能玩明白</div>
+
+  <div class="tabs">
+    <div class="tab active" data-p="p1">① 数补牌（Outs）</div>
+    <div class="tab" data-p="p2">② 2和4法则速算</div>
+    <div class="tab" data-p="p3">③ 跟不跟？比大小</div>
+    <div class="tab" data-p="p4">④ 起手牌图形表</div>
+    <div class="tab" data-p="p5">⑤ 训练计划</div>
+  </div>
+
+  <!-- ============ 面板1：数Outs ============ -->
+  <div class="panel active" id="p1">
+    <div class="card-box">
+      <h2>核心规则（背这一句就够了）</h2>
+      <div class="tip"><b>不用算概率。</b> 你只需要回答一个问题："翻牌/转牌还剩<b>几张牌</b>能帮到我？" —— 这是数数，不是数学。</div>
+      <div class="chunk"><b>同花听牌</b>：手里 2 张 + 桌面 2 张同花色 → 还差 1 张凑同花 → 13 - 4 = <b>9 张</b></div>
+      <div class="chunk"><b>两头顺听牌</b>：如手里 9-8，桌上 7-6-x → 5 或 10 都能成顺 → 4张5 + 4张10 = <b>8 张</b></div>
+      <div class="chunk"><b>卡顺听牌</b>：只差中间 1 张 → <b>4 张</b></div>
+      <div class="chunk"><b>两张大牌都没配对</b>：如手里 A-K 桌上没 A 没 K → 3+3 = <b>6 张</b></div>
+      <hr class="divider">
+      <h2>来，数一个</h2>
+      <div class="poker-row" id="outs-hole"></div>
+      <div class="stage-label">↓ 你的手牌 · 下面是公共牌</div>
+      <div class="poker-row" id="outs-board"></div>
+      <div class="big-q" id="outs-q"></div>
+      <div class="opt-row" id="outs-opts"></div>
+      <div class="feedback" id="outs-fb"></div>
+      <div class="score" id="outs-score"></div>
+      <button class="btn" onclick="newOutsQ()">下一题 →</button>
+    </div>
+  </div>
+
+  <!-- ============ 面板2：2和4法则 ============ -->
+  <div class="panel" id="p2">
+    <div class="card-box">
+      <h2>整条链路只有两个动作</h2>
+      <div class="tip"><b>第一步：数出几张牌帮你（面板①已会）。第二步：只做一次乘法 ——</b> 还能看到 2 张牌时 <span class="hl">×4</span>；只剩 1 张牌时 <span class="hl">×2</span>。得出来的数 ≈ 你的成牌概率（%）。</div>
+      <div class="chunk">9 张补牌 × 4 = <b>约36%</b> → 说人话："10 次里能成 3 次半"</div>
+      <div class="chunk">8 张补牌 × 2 = <b>约16%</b> → 说人话："6 次里能成 1 次"</div>
+      <hr class="divider">
+      <h2>速算练习</h2>
+      <div class="big-q" id="r24-q"></div>
+      <div style="margin-top:10px;">
+        <input type="number" class="input-num" id="r24-in" placeholder="填 %">
+        <button class="btn" onclick="checkR24()">提交</button>
+        <button class="btn ghost" onclick="newR24Q()">换一题</button>
+      </div>
+      <div class="feedback" id="r24-fb"></div>
+      <div class="score" id="r24-score"></div>
+    </div>
+  </div>
+
+  <!-- ============ 面板3：跟不跟 ============ -->
+  <div class="panel" id="p3">
+    <div class="card-box">
+      <h2>最后一步：两个数，比大小</h2>
+      <div class="tip"><b>左边</b>：我的成牌概率（outs×4 或 ×2）。<b>右边</b>：跟注要付的比例 = 要跟的钱 ÷（底池 + 要跟的钱）。<span class="hl">左边大 → 跟；右边大 → 弃。</span> 比大小，谁都会。</div>
+      <div class="chunk">例：底池 100，对方下注 50。跟注比例 = 50 ÷ (100+50+50) = 50÷200 = <b>25%</b>（4次里中1次才不亏）</div>
+      <hr class="divider">
+      <div class="poker-row" id="call-hole"></div>
+      <div class="poker-row" id="call-board"></div>
+      <div class="big-q" id="call-q"></div>
+      <div class="opt-row">
+        <div class="opt" onclick="answerCall(true)">跟注 ✔</div>
+        <div class="opt" onclick="answerCall(false)">弃牌 ✖</div>
+      </div>
+      <div class="feedback" id="call-fb"></div>
+      <div class="score" id="call-score"></div>
+      <button class="btn" onclick="newCallQ()">下一题 →</button>
+    </div>
+    <div class="card-box">
+      <h2>顺手记几个"次数感"</h2>
+      <div class="chunk">25% = <b>4次中1次</b>　·　33% = <b>3次中1次</b>　·　20% = <b>5次中1次</b>　·　36% ≈ <b>3次中1次多一点</b></div>
+    </div>
+  </div>
+
+  <!-- ============ 面板4：起手牌表 ============ -->
+  <div class="panel" id="p4">
+    <div class="card-box">
+      <h2>别背牌表，看图记"色块"</h2>
+      <div class="tip">把 169 种起手牌压缩成 <b>3 个色块</b>：红色块（强）放心玩，黄色块（中）看位置玩，灰色块（弱）没好牌型直接丢。点任意格子看解释。</div>
+      <div class="grid13" id="grid13"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#c0442c"></i> 尖端牌：加注</span>
+        <span><i class="dot" style="background:#b98a2f"></i> 中坚牌：看位置跟/加</span>
+        <span><i class="dot" style="background:#9aa0a6"></i> 边缘牌：便宜就玩</span>
+        <span><i class="dot" style="background:#d7d2c6"></i> 弱牌：弃</span>
+      </div>
+      <div class="hand-detail" id="hand-detail"></div>
+    </div>
+  </div>
+
+  <!-- ============ 面板5：计划 ============ -->
+  <div class="panel" id="p5">
+    <div class="card-box">
+      <h2>14 天训练计划（每天 10 分钟）</h2>
+      <ul class="rules-list">
+        <li><b>第 1–3 天</b>：只玩面板①。目标：10 秒内数出任意听牌的 outs，错误率 &lt; 1 题 / 10 题。</li>
+        <li><b>第 4–6 天</b>：面板① + ②连着练。数 outs → 立刻乘 4 或 2，形成"看见听牌自动出数"的反射。</li>
+        <li><b>第 7–9 天</b>：面板③跟弃决策，每天 20 题。只在"跟注比例 ≤ 成牌概率"时跟。</li>
+        <li><b>第 10–12 天</b>：面板④色块过一遍，重点记红色块（AA–AQ、AK、KK 以下大对子），其余靠"离红越近越敢玩"。</li>
+        <li><b>第 13–14 天</b>：实战复盘。回看你打过的牌局，只问三个问题：我有几张补牌？×4还是×2？左边大还是右边大？</li>
+      </ul>
+      <hr class="divider">
+      <h2>为什么这套适合你</h2>
+      <ul class="rules-list">
+        <li><b>数数代替算数</b> —— 全程最大运算量是"13减4"和"乘4"，小学二年级水平。</li>
+        <li><b>比例语言代替百分比</b> —— "4次中1次"比"25%"直观得多，大脑更容易存。</li>
+        <li><b>图形代替表格</b> —— 起手牌记色块位置，不背 169 行清单。</li>
+        <li><b>决策只有一步</b> —— 比大小，不比精确。误差 2% 以内根本不影响输赢。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- 基础 ---------- */
+const SUITS = [
+  {s:"♠", color:"black"}, {s:"♥", color:"red"},
+  {s:"♦", color:"red"}, {s:"♣", color:"black"}
+];
+const RANKS = ["2","3","4","5","6","7","8","9","T","J","Q","K","A"];
+const RANK_CN = {T:"10", J:"J", Q:"Q", K:"K", A:"A"};
+let rngSeed = Date.now();
+function rnd(n){ return Math.floor(Math.random()*n); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function cardEl(rank, suitIdx, hidden){
+  const s = SUITS[suitIdx];
+  const d = document.createElement("div");
+  d.className = "poker " + (hidden ? "back" : s.color);
+  d.innerHTML = hidden ? "" :
+    `<span class="corner">${rank}<br>${s.s}</span><span class="rank">${rank==="T"?"10":rank}</span><span class="suit">${s.s}</span>`;
+  return d;
+}
+
+/* tabs */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById(t.dataset.p).classList.add("active");
+  };
+});
+
+/* ---------- 面板1：Outs ---------- */
+const OUTS_TYPES = [
+  {key:"flush", label:"同花听牌", outs:9, build(){ /* 2手+2桌同花，第5张不同色 */
+    const si = rnd(4);
+    const rs = shuffle([...RANKS]);
+    return {hole:[[rs[0],si],[rs[1],si]], board:[[rs[2],si],[rs[3],si],[rs[4],rnd(4)]]};
+  }},
+  {key:"oesd", label:"两头顺听牌", outs:8, build(){ /* 连续4张顺子部分，如 9-8-7-6 */
+    const start = 2 + rnd(7); // 2..8 → 9,8,7,6 或更靠中
+    const rs = [RANKS[start],RANKS[start+1],RANKS[start+2],RANKS[start+3]];
+    const usedSuits = [];
+    const pick = r=>{ let s; do{ s=rnd(4);}while(usedSuits.includes(r+s)); usedSuits.push(r+s); return s; };
+    const hole = [[rs[0],pick(rs[0])],[rs[1],pick(rs[1])]];
+    const board = [[rs[2],pick(rs[2])],[rs[3],pick(rs[3])],[RANKS[rnd(13)],rnd(4)]];
+    return {hole, board};
+  }},
+  {key:"gutshot", label:"卡顺听牌", outs:4, build(){
+    const start = 2 + rnd(8); // 4张牌中隔一张，如 9,7,6,5 → 缺8
+    const rs = [RANKS[start],RANKS[start+2],RANKS[start+3],RANKS[start+4]].filter(Boolean);
+    if(rs.length<4) return this.build();
+    const usedSuits = [];
+    const pick = r=>{ let s; do{ s=rnd(4);}while(usedSuits.includes(r+s)); usedSuits.push(r+s); return s; };
+    const hole = [[rs[0],pick(rs[0])],[rs[1],pick(rs[1])]];
+    const board = [[rs[2],pick(rs[2])],[rs[3],pick(rs[3])],[RANKS[rnd(13)],rnd(4)]];
+    return {hole, board};
+  }},
+  {key:"over", label:"两张超牌", outs:6, build(){ /* AK + 低牌面 */
+    const hole = [["A",rnd(4)],["K",rnd(4)]];
+    const board = [[RANKS[1+rnd(6)],rnd(4)],[RANKS[1+rnd(6)],rnd(4)],[RANKS[1+rnd(6)],rnd(4)]];
+    return {hole, board};
+  }},
+  {key:"flush_gut", label:"同花+卡顺", outs:12, build(){ /* 同花听牌且带卡顺 */
+    const si = rnd(4);
+    const start = 2 + rnd(8);
+    const rs = [RANKS[start],RANKS[start+2],RANKS[start+3],RANKS[start+4]].filter(Boolean);
+    if(rs.length<4) return this.build();
+    const hole = [[rs[0],si],[rs[1],si]];
+    const b2 = (rs[2]===RANKS[start+2])? si : rnd(4);
+    const b3 = (rs[3]===RANKS[start+3])? si : rnd(4);
+    const board = [[rs[2],b2],[rs[3],b3],[RANKS[rnd(13)],rnd(4)]];
+    return {hole, board};
+  }},
+];
+let outsCorrect=0, outsTotal=0, curOuts=null;
+function newOutsQ(){
+  curOuts = OUTS_TYPES[rnd(OUTS_TYPES.length)];
+  const {hole, board} = curOuts.build();
+  const h1=document.getElementById("outs-hole"), b1=document.getElementById("outs-board");
+  h1.innerHTML=""; b1.innerHTML="";
+  hole.forEach(c=>h1.appendChild(cardEl(c[0],c[1])));
+  board.forEach(c=>b1.appendChild(cardEl(c[0],c[1])));
+  document.getElementById("outs-q").innerHTML =
+    `转牌还没来。你还差哪类牌？数一数：<b>几张补牌（Outs）？</b>`;
+
+  /* 选项：正确值 + 干扰值 */
+  const pool = [4,6,8,9,12,15].filter(v=>v!==curOuts.outs);
+  shuffle(pool);
+  const opts = shuffle([curOuts.outs, pool[0], pool[1], pool[2]]);
+  const box = document.getElementById("outs-opts");
+  box.innerHTML="";
+  opts.forEach(v=>{
+    const d=document.createElement("div");
+    d.className="opt"; d.textContent=v;
+    d.onclick=()=>answerOuts(v,d);
+    box.appendChild(d);
+  });
+  const fb=document.getElementById("outs-fb");
+  fb.className="feedback"; fb.innerHTML="";
+}
+function answerOuts(v, el){
+  outsTotal++;
+  const fb=document.getElementById("outs-fb");
+  if(v===curOuts.outs){
+    outsCorrect++;
+    fb.className="feedback ok show";
+    fb.innerHTML=`✔ 对！${curOuts.label} = ${curOuts.outs} 张补牌。`;
+  }else{
+    fb.className="feedback no show";
+    fb.innerHTML=`✖ 这是 ${curOuts.label}：应该是 <b>${curOuts.outs} 张</b>。记住它，下次见到直接报数。`;
+  }
+  document.getElementById("outs-score").textContent =
+    `得分：${outsCorrect} / ${outsTotal}`;
+  newOutsQ.__pending = true;
+  /* 防止重复点击 */
+  document.querySelectorAll("#outs-opts .opt").forEach(o=>o.onclick=null);
+}
+newOutsQ();
+
+/* ---------- 面板2：2和4 ---------- */
+let r24Correct=0, r24Total=0, curR24=null;
+function newR24Q(){
+  const t = OUTS_TYPES[rnd(OUTS_TYPES.length)];
+  const stage = rnd(2); // 0: 翻牌(×4) 1: 转牌(×2)
+  curR24 = {outs:t.outs, stage};
+  document.getElementById("r24-q").innerHTML =
+    `你是<b>${t.label}</b>，数出 <span class="hl">${t.outs} 张</span>补牌。` +
+    (stage===0 ? `现在你<b>还能看到 2 张牌</b>（翻牌刚出）。成牌概率约多少 <b>%</b>？`
+               : `现在你<b>只剩 1 张牌</b>可看（转牌已出）。成牌概率约多少 <b>%</b>？`);
+  document.getElementById("r24-in").value="";
+  const fb=document.getElementById("r24-fb");
+  fb.className="feedback"; fb.innerHTML="";
+}
+function checkR24(){
+  const val = parseFloat(document.getElementById("r24-in").value);
+  if(isNaN(val)) return;
+  const mult = curR24.stage===0 ? 4 : 2;
+  const ans = curR24.outs * mult;
+  r24Total++;
+  const fb=document.getElementById("r24-fb");
+  if(Math.abs(val-ans)<=2){
+    r24Correct++;
+    fb.className="feedback ok show";
+    fb.innerHTML=`✔ ${curR24.outs} × ${mult} = ${ans}% ≈ "<b>${Math.round(100/ans)}次里中1次</b>"的感觉。`;
+  }else{
+    fb.className="feedback no show";
+    fb.innerHTML=`✖ 正确答案约 <b>${ans}%</b>（${curR24.outs} × ${mult}）。就说："${Math.round(100/ans)}次里中1次"。`;
+  }
+  document.getElementById("r24-score").textContent = `得分：${r24Correct} / ${r24Total}`;
+}
+newR24Q();
+
+/* ---------- 面板3：跟不跟 ---------- */
+let callCorrect=0, callTotal=0, curCall=null;
+function newCallQ(){
+  const t = OUTS_TYPES[rnd(OUTS_TYPES.length)];
+  const t2 = OUTS_TYPES[rnd(OUTS_TYPES.length)];
+  const draw = (rnd(2)===0)? t : t2; // 随机换个题型来源
+  const stage = rnd(2);
+  const mult = stage===0?4:2;
+  const equity = draw.outs*mult;
+
+  /* 底池场景 */
+  const pot = [60,80,100,120,150,200][rnd(6)];
+  const betPct = [0.25,0.33,0.5,0.66,1.0][rnd(5)];
+  const bet = Math.round(pot*betPct);
+  const need = Math.round(100*bet/(pot+bet+bet)); // 跟注需要概率%
+
+  curCall = {equity, need, outs:draw.outs, draw:draw.label, stage, pot, bet,
+             should: equity>need};
+  const h1=document.getElementById("call-hole"), b1=document.getElementById("call-board");
+  h1.innerHTML=""; b1.innerHTML="";
+  const {hole,board} = draw.build();
+  hole.forEach(c=>h1.appendChild(cardEl(c[0],c[1])));
+  board.forEach(c=>b1.appendChild(cardEl(c[0],c[1])));
+  document.getElementById("call-q").innerHTML =
+    `底池 <span class="hl">${pot}</span>，对方下注 <span class="hl">${bet}</span>，你跟 ${bet}。`+
+    (stage===0?`还能看 2 张牌。<b>跟还是弃？</b>`:`只剩 1 张牌。<b>跟还是弃？</b>`);
+  const fb=document.getElementById("call-fb");
+  fb.className="feedback"; fb.innerHTML="";
+}
+function answerCall(call){
+  callTotal++;
+  const fb=document.getElementById("call-fb");
+  const right = call===curCall.should;
+  if(right) callCorrect++;
+  fb.className = "feedback " + (right?"ok":"no") + " show";
+  const verdict = curCall.should ? "该跟" : "该弃";
+  if(right){
+    fb.innerHTML = `✔ ${verdict}。<br>` +
+      `成牌概率 ≈ ${curCall.outs}×${curCall.stage===0?4:2} = <b>${curCall.equity}%</b>（${Math.round(100/curCall.equity)}次中1次）<br>` +
+      `跟注比例 = ${curCall.bet} ÷ (${curCall.pot}+${curCall.bet}+${curCall.bet}) = <b>${curCall.need}%</b><br>` +
+      `${curCall.should? "左边大 → 跟" : "右边大 → 弃"}`;
+  }else{
+    fb.innerHTML = `✖ 其实${verdict}。<br>` +
+      `成牌概率 ≈ ${curCall.outs}×${curCall.stage===0?4:2} = <b>${curCall.equity}%</b>（${Math.round(100/curCall.equity)}次中1次）<br>` +
+      `跟注比例 = ${curCall.bet} ÷ (${curCall.pot}+${curCall.bet}+${curCall.bet}) = <b>${curCall.need}%</b><br>` +
+      `${curCall.should? "左边大 → 跟" : "右边大 → 弃"}`;
+  }
+  document.getElementById("call-score").textContent = `得分：${callCorrect} / ${callTotal}`;
+}
+newCallQ();
+
+/* ---------- 面板4：13x13 ---------- */
+function tierOf(r1,r2,suited){
+  // 返回 0红 1金 2灰蓝 3弱
+  const v = r=>({A:12,K:11,Q:10,J:9,T:8,9:7,8:6,7:5,6:4,5:3,4:2,3:1,2:0}[r]);
+  const hi=Math.max(v(r1),v(r2)), lo=Math.min(v(r1),v(r2));
+  if(r1===r2){ // 对子
+    if(hi>=8) return 0; if(hi>=4) return 1; return 2;
+  }
+  if(suited){
+    if(hi===12 && lo>=8) return 0;
+    if(hi>=10 && lo>=6) return 1;
+    if(hi>=8) return 2;
+    return 3;
+  }else{
+    if(hi===12 && lo===11) return 0; // AKo
+    if(hi===12 && lo>=8) return 1;   // AQ-AJ
+    if(hi>=10 && lo>=8) return 2;
+    if(hi>=11 && lo>=9) return 2;
+    return 3;
+  }
+}
+const TIER_COLORS = ["#c0442c","#b98a2f","#7a8aa0","#d7d2c6"];
+const TIER_NAMES = ["尖端牌","中坚牌","边缘牌","弱牌"];
+const TIER_ADVICE = [
+  "加注 / 反加注，随便什么位置都玩。",
+  "中后位置可以加注或跟注；枪口位收敛一点。",
+  "便宜就进，被加注就放，别恋战。",
+  "直接弃。省下的钱就是你赢的钱。"
+];
+function buildGrid(){
+  const g=document.getElementById("grid13");
+  g.innerHTML="";
+  for(let row=0;row<13;row++){
+    for(let col=0;col<13;col++){
+      const r1=RANKS[row], r2=RANKS[col];
+      const suited = col>row; // 上三角同花
+      const rr1 = suited? r1:r2, rr2 = suited? r2:r1;
+      const label = row===col? r1+r2 : (suited? r1+r2+"s" : r2+r1+"o");
+      const tier = tierOf(r1,r2,suited||row===col);
+      const cell=document.createElement("div");
+      cell.className="cell";
+      cell.style.background = TIER_COLORS[tier];
+      cell.style.color = tier===3? "#6b675c" : "#fff";
+      cell.textContent = label.replace("s","").replace("o","");
+      cell.title = label;
+      cell.onclick=()=>{
+        const d=document.getElementById("hand-detail");
+        d.style.display="block";
+        d.innerHTML = `<b>${label}</b> · ${TIER_NAMES[tier]} — ${TIER_ADVICE[tier]}`;
+      };
+      g.appendChild(cell);
+    }
+  }
+}
+buildGrid();
+</script>
+</body>
+</html>
